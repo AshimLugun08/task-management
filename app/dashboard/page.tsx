@@ -4,7 +4,9 @@ import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { PieChart, Pie, Cell, Legend, Tooltip, ResponsiveContainer } from 'recharts';
 import Navbar from '../component/navbar';
-
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
+import router from 'next/router';
 // TypeScript interfaces for Task and User based on MongoDB schemas
 interface Task {
   _id: string;
@@ -26,6 +28,7 @@ interface User {
 }
 
 export default function Dashboard() {
+  const { data: session, status: authStatus } = useSession();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,23 +36,31 @@ export default function Dashboard() {
 
   // Fetch tasks and users on mount
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [tasksResponse, usersResponse] = await Promise.all([
-          axios.get('/api/task'),
-          axios.get('/api/users'),
-        ]);
-        setTasks(tasksResponse.data);
-        setUsers(usersResponse.data);
-        setLoading(false);
-      } catch (err) {
-        setError('Failed to load data');
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
+    if (authStatus === 'unauthenticated') {
+      router.push('/login');
+    }
+  }, [authStatus, router]);
 
+  // Fetch tasks and users on mount
+  useEffect(() => {
+    if (authStatus === 'authenticated') {
+      const fetchData = async () => {
+        try {
+          const [tasksResponse, usersResponse] = await Promise.all([
+            axios.get('/api/task'),
+            axios.get('/api/users'),
+          ]);
+          setTasks(tasksResponse.data);
+          setUsers(usersResponse.data);
+          setLoading(false);
+        } catch (err) {
+          setError('Failed to load data');
+          setLoading(false);
+        }
+      };
+      fetchData();
+    }
+  }, [authStatus]);
   // Calculate task statistics
   const taskStatusCounts = tasks.reduce(
     (acc, task) => ({

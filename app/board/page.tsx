@@ -3,8 +3,10 @@ import { connectDB } from "@/lib/db";
 import Task from "@/model/task";
 import BoardPage from "./board";
 import Navbar from "../component/navbar";
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { redirect } from 'next/navigation';
 
-// Define Task type
 type TaskStatus = 'todo' | 'in-progress' | 'testing' | 'done';
 
 export interface Task {
@@ -17,10 +19,15 @@ export interface Task {
   createdAt?: string;
   updatedAt?: string;
   dueDate?: string;
-  createdBy?: string; // Added to match BoardPage
+  createdBy?: string;
 }
 
 export default async function Page() {
+  const session = await getServerSession(authOptions);
+  if (!session) {
+    redirect('/login');
+  }
+
   await connectDB();
   const tasks = await Task.find().lean();
   return (
