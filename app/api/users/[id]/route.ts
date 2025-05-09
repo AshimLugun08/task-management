@@ -2,28 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/db';
 import User from '@/model/user';
 
-// Using Route Segment Config to specify dynamic params handling
-export const dynamic = 'force-dynamic';
-
-/**
- * GET handler for the user by ID route
- * @param request - The incoming request object
- * @param context - The route context with dynamic params
- */
-export async function GET(
-  request: NextRequest,
-  context: { params: Promise<{ id: string }> } // Explicitly type params as Promise
-) {
+export async function GET(req: Request, { params }: { params: { id: string } }) {
   try {
     await connectDB();
-
-    // Await params to resolve the Promise
-    const { id } = await context.params;
-
-    // Fetch user by ID
-    const user = await User.findById(id);
-
-    // Return 404 if user not found
+    const user = await User.findById(params.id);
     if (!user) {
       return NextResponse.json(
         { message: 'User not found' },
