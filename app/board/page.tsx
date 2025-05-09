@@ -4,8 +4,21 @@ import Task from "@/model/task";
 import BoardPage from "./board";
 import Navbar from "../component/navbar";
 
-// Placeholder Navbar component (adjust based on your actual Navbar)
+// Define Task type
+type TaskStatus = 'todo' | 'in-progress' | 'testing' | 'done';
 
+export interface Task {
+  _id: string;
+  title: string;
+  status: TaskStatus;
+  assignedTo?: string;
+  description?: string;
+  priority?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  dueDate?: string;
+  createdBy?: string; // Added to match BoardPage
+}
 
 export default async function Page() {
   await connectDB();
@@ -13,7 +26,7 @@ export default async function Page() {
   return (
     <div>
       <Navbar />
-      <BoardPage tasks={JSON.parse(JSON.stringify(tasks))} />
+      <BoardPage tasks={JSON.parse(JSON.stringify(tasks)) as Task[]} />
     </div>
   );
 }

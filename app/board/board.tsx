@@ -12,11 +12,7 @@ import {
   Chip,
 } from '@mui/material';
 import { IoAdd } from 'react-icons/io5';
-import {
-  PriorityHigh,
-  ArrowUpward,
-  ArrowDownward,
-} from '@mui/icons-material';
+import { PriorityHigh, ArrowUpward, ArrowDownward } from '@mui/icons-material';
 
 type TaskStatus = 'todo' | 'in-progress' | 'testing' | 'done';
 
@@ -39,12 +35,15 @@ interface User {
   avatar?: string;
 }
 
-export default function BoardPage() {
-  const [tasks, setTasks] = useState<Task[]>([]);
+interface BoardPageProps {
+  tasks: Task[]; // Define tasks prop
+}
+
+export default function BoardPage({ tasks: initialTasks }: BoardPageProps) {
+  const [tasks, setTasks] = useState<Task[]>(initialTasks); // Initialize with prop
   const [users, setUsers] = useState<User[]>([]);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
-
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -82,6 +81,11 @@ export default function BoardPage() {
     fetchTasks();
     fetchUsers();
   }, []);
+
+  // Update tasks when initialTasks prop changes
+  useEffect(() => {
+    setTasks(initialTasks);
+  }, [initialTasks]);
 
   const openModal = useCallback((task: Task) => {
     setSelectedTask(task);
@@ -146,7 +150,6 @@ export default function BoardPage() {
                 bgcolor: '#f1f1f1',
                 color: '#2d2d2d',
                 border: selectedUsers.includes(user._id) ? '2px solid #1976d2' : 'none',
-
                 cursor: 'pointer',
               }}
               onClick={() =>
@@ -156,7 +159,6 @@ export default function BoardPage() {
                     : [...prev, user._id]
                 )
               }
-              
             >
               {user.name.charAt(0).toUpperCase()}
             </Avatar>
@@ -204,8 +206,7 @@ export default function BoardPage() {
                   .filter(
                     (task) =>
                       task.status === column &&
-                    (selectedUsers.length === 0 || selectedUsers.includes(task.assignedTo || ''))
-
+                      (selectedUsers.length === 0 || selectedUsers.includes(task.assignedTo || ''))
                   )
                   .map((task) => (
                     <Box
@@ -291,7 +292,6 @@ export default function BoardPage() {
                     </Box>
                   ))}
               </Box>
-             
             </Box>
           ))}
         </Box>
