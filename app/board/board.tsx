@@ -1,264 +1,309 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useCallback } from 'react';
 import TaskModal from './taskmodal';
-// import { Task, TaskStatus } from '@/types/task';
-
+import {
+  Box,
+  Button,
+  CircularProgress,
+  Typography,
+  Alert,
+  Avatar,
+  Chip,
+} from '@mui/material';
+import { IoAdd } from 'react-icons/io5';
+import {
+  PriorityHigh,
+  ArrowUpward,
+  ArrowDownward,
+} from '@mui/icons-material';
 
 type TaskStatus = 'todo' | 'in-progress' | 'testing' | 'done';
 
 interface Task {
-    _id: string;
-    title: string;
-    status: TaskStatus;
-    assignee?: string;
-    description?: string;
-    priority?: string;
-    dueDate?: string;
-    createdBy?: string;
-    createdAt?: string;
-    updatedAt?: string;
-  }
+  _id: string;
+  title: string;
+  status: TaskStatus;
+  assignedTo?: string;
+  description?: string;
+  priority?: string;
+  dueDate?: string;
+  createdBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
 
-  interface User {
-    _id: string;
-    name: string;
-    avatar?: string;
-  }
-
-interface Column {
+interface User {
+  _id: string;
   name: string;
-  tasks: Task[];
+  avatar?: string;
 }
 
-interface Columns {
-  [key: string]: Column;
-}
-
-interface BoardPageProps {
-  tasks: Task[];
-}
-
-export default function BoardPage({ tasks: initialTasks }: BoardPageProps) {
-  const [tasks, setTasks] = useState<Task[]>(initialTasks);
-  const [newTask, setNewTask] = useState({
-    title: '',
-    status: 'todo' as TaskStatus,
-    assignee: '',
-  });
-  const [error, setError] = useState<string | null>(null);
+export default function BoardPage() {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const router = useRouter();
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
 
-  // Derive columns from tasks
-  const columns: Columns = {
-    todo: { name: 'TO DO', tasks: [] },
-    'in-progress': { name: 'IN PROGRESS', tasks: [] },
-    testing: { name: 'TESTING', tasks: [] },
-    done: { name: 'DONE', tasks: [] },
-  };
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  tasks.forEach((task) => {
-    const status = task.status?.toLowerCase() as TaskStatus;
-    if (columns[status]) {
-      columns[status].tasks.push(task);
-    } else {
-      console.warn(`Task with invalid status:`, task);
-    }
-  });
+  const columns: TaskStatus[] = ['todo', 'in-progress', 'testing', 'done'];
 
-  useEffect(() => {
-    console.log('Initial tasks:', initialTasks.length, initialTasks);
-    console.log('selectedTask updated:', selectedTask);
-  }, [selectedTask, initialTasks]);
-
-  useEffect(() => {
-    console.log('Tasks updated:', tasks.length, tasks);
-  }, [tasks]);
-
-  const statusColors: { [key in TaskStatus]: string } = {
-    todo: 'bg-blue-100 text-blue-800 border border-blue-300',
-    'in-progress': 'bg-yellow-100 text-yellow-800 border border-yellow-300',
-    testing: 'bg-orange-100 text-orange-800 border border-orange-300',
-    done: 'bg-green-100 text-green-800 border border-green-300',
-  };
-
-  const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ) => {
-    const { name, value } = e.target;
-    setNewTask((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleAddTask = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const fetchTasks = async () => {
+    setIsLoading(true);
     try {
-      const res = await fetch('/api/task', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(newTask),
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || 'Failed to create task');
-      }
-
-      const createdTask: Task = await res.json();
-      console.log('Created task:', createdTask);
-      setTasks((prev) => {
-        const newTasks = [...prev, createdTask];
-        console.log('After adding task:', newTasks.length, newTasks);
-        return newTasks;
-      });
-      setNewTask({ title: '', status: 'todo', assignee: '' });
+      const res = await fetch('/api/task');
+      if (!res.ok) throw new Error('Failed to fetch tasks');
+      const data: Task[] = await res.json();
+      setTasks(data);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      setError(
+        err instanceof Error ? err.message : 'An error occurred while fetching tasks'
+      );
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleUpdateTask = (updatedTask: Task) => {
-    setTasks((prev) => {
-      const newTasks = prev.map((task) =>
-        task._id === updatedTask._id ? { ...updatedTask } : task
-      );
-      console.log('After updating task:', newTasks.length, newTasks);
-      return newTasks;
-    });
-    setSelectedTask(null);
+  const fetchUsers = async () => {
+    try {
+      const res = await fetch('/api/users');
+      if (!res.ok) throw new Error('Failed to fetch users');
+      const userData: User[] = await res.json();
+      setUsers(userData);
+    } catch (err) {
+      console.error('Error fetching users:', err);
+    }
   };
 
-  const openModal = (task: Task) => {
-    console.log('Opening modal for task:', task);
+  useEffect(() => {
+    fetchTasks();
+    fetchUsers();
+  }, []);
+
+  const openModal = useCallback((task: Task) => {
     setSelectedTask(task);
-  };
+  }, []);
 
   const closeModal = () => {
-    console.log('Closing modal');
     setSelectedTask(null);
   };
 
-  if (error) {
-    return <div className="p-4 text-center text-red-600">Error: {error}</div>;
-  }
+  const handleUpdateTask = useCallback((updatedTask: Task) => {
+    setTasks((prev) =>
+      prev.map((task) => (task._id === updatedTask._id ? updatedTask : task))
+    );
+    setSelectedTask(null);
+  }, []);
+
+  const getUserById = (userId?: string) => {
+    return users.find((user) => user._id === userId) || null;
+  };
+
+  const getPriorityIcon = (priority?: string) => {
+    switch (priority) {
+      case 'high':
+        return <PriorityHigh color="error" />;
+      case 'medium':
+        return <ArrowUpward color="warning" />;
+      case 'low':
+        return <ArrowDownward color="success" />;
+      default:
+        return undefined;
+    }
+  };
 
   return (
-    <div className="p-4 bg-gray-100 min-h-screen">
-      {/* Add Task Form */}
-      <div className="mb-6 p-4 bg-white rounded-lg shadow-sm border border-gray-200">
-        <h2 className="text-lg font-semibold text-gray-800 mb-4">Add New Task</h2>
-        <form onSubmit={handleAddTask} className="flex flex-col sm:flex-row gap-4">
-          <div className="flex-1">
-            <input
-              type="text"
-              name="title"
-              value={newTask.title}
-              onChange={handleInputChange}
-              placeholder="Task title"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-          </div>
-          <div className="w-full sm:w-40">
-            <select
-              name="status"
-              value={newTask.status}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+    <Box sx={{ p: 3, bgcolor: '#F4F5F7', minHeight: '100vh', fontFamily: 'Roboto, sans-serif' }}>
+      {/* Header */}
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          mb: 3,
+          bgcolor: 'white',
+          p: 2,
+          borderRadius: 1,
+          boxShadow: 1,
+          justifyContent: 'space-between',
+        }}
+      >
+        <Typography variant="h5" sx={{ fontWeight: 500, color: '#172B4D' }}>
+          Task Board
+        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          {users.map((user) => (
+            <Avatar
+              key={user._id}
+              alt={user.name}
+              src={user.avatar}
+              sx={{
+                width: 36,
+                height: 36,
+                fontSize: '1rem',
+                bgcolor: '#f1f1f1',
+                color: '#2d2d2d',
+                border: selectedUsers.includes(user._id) ? '2px solid #1976d2' : 'none',
+
+                cursor: 'pointer',
+              }}
+              onClick={() =>
+                setSelectedUsers((prev) =>
+                  prev.includes(user._id)
+                    ? prev.filter((id) => id !== user._id)
+                    : [...prev, user._id]
+                )
+              }
+              
             >
-              <option value="todo">TO DO</option>
-              <option value="in-progress">IN PROGRESS</option>
-              <option value="testing">TESTING</option>
-              <option value="done">DONE</option>
-            </select>
-          </div>
-          <div className="flex-1">
-            <input
-              type="text"
-              name="assignee"
-              value={newTask.assignee}
-              onChange={handleInputChange}
-              placeholder="Assignee (optional)"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          <button
-            type="submit"
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition ease-in-out"
-          >
-            Add Task
-          </button>
-        </form>
-      </div>
+              {user.name.charAt(0).toUpperCase()}
+            </Avatar>
+          ))}
+        </Box>
+      </Box>
 
-      {/* Board Header */}
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-semibold text-gray-800">Project Board</h1>
-        <div className="flex items-center space-x-2">
-          <button className="px-3 py-1 text-sm text-gray-600 border border-gray-300 rounded hover:bg-gray-200">
-            Filter
-          </button>
-          <button className="px-3 py-1 text-sm text-gray-600 border border-gray-300 rounded hover:bg-gray-200">
-            Share
-          </button>
-        </div>
-      </div>
-
-      {/* Kanban Board */}
-      <div className="flex space-x-4 overflow-x-auto pb-4">
-        {Object.entries(columns).map(([columnId, column]) => (
-          <div
-            key={columnId}
-            className="flex-shrink-0 w-72 bg-white rounded-lg shadow-sm border border-gray-200"
-          >
-            {/* Column Header */}
-            <div className="p-3 border-b border-gray-200">
-              <h2 className="text-sm font-medium text-gray-700">
-                {column.name} ({column.tasks.length})
-              </h2>
-            </div>
-
-            {/* Tasks */}
-            <div className="p-3 space-y-3 min-h-[100px] max-h-[calc(100vh-200px)] overflow-y-auto">
-              {column.tasks.length === 0 ? (
-                <p className="text-sm text-gray-500 text-center">No issues</p>
-              ) : (
-                column.tasks.map((task) => (
-                  <div
-                    key={task._id}
-                    onClick={() => openModal(task)}
-                    className="p-3 bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition ease-in-out cursor-pointer"
-                  >
-                    <div className="flex justify-end items-center mb-2">
-                      <span
-                        className={`px-2 py-0.5 text-xs font-medium rounded ${statusColors[task.status]}`}
-                      >
-                        {task.status.toUpperCase()}
-                      </span>
-                    </div>
-                    <h3 className="text-sm font-medium text-gray-800">{task.title}</h3>
-                    <div className="flex items-center mt-2">
-                      <div className="w-6 h-6 bg-gray-300 rounded-full flex items-center justify-center text-xs text-gray-600">
-                        {task.assignee ? task.assignee[0] : '?'}
-                      </div>
-                      <span className="ml-2 text-xs text-gray-600">{task.assignee || 'Unassigned'}</span>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Task Modal */}
-      {selectedTask && (
-        <TaskModal task={selectedTask} onClose={closeModal} onUpdate={handleUpdateTask} />
+      {error && (
+        <Alert severity="error" sx={{ mb: 3, borderRadius: 1 }}>
+          {error}
+        </Alert>
       )}
-    </div>
+
+      {isLoading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+          <CircularProgress />
+        </Box>
+      ) : (
+        <Box sx={{ display: 'flex', gap: 2, overflowX: 'auto', pb: 2 }}>
+          {columns.map((column) => (
+            <Box
+              key={column}
+              sx={{
+                flex: '0 0 280px',
+                bgcolor: '#EBECF0',
+                borderRadius: 2,
+                p: 2,
+                minHeight: '70vh',
+              }}
+            >
+              <Typography
+                variant="subtitle1"
+                sx={{
+                  mb: 2,
+                  fontWeight: 500,
+                  color: '#172B4D',
+                  textTransform: 'uppercase',
+                  fontSize: '0.875rem',
+                }}
+              >
+                {column.replace('-', ' ')}
+              </Typography>
+              <Box sx={{ minHeight: '50vh' }}>
+                {tasks
+                  .filter(
+                    (task) =>
+                      task.status === column &&
+                    (selectedUsers.length === 0 || selectedUsers.includes(task.assignedTo || ''))
+
+                  )
+                  .map((task) => (
+                    <Box
+                      key={task._id}
+                      sx={{
+                        bgcolor: 'white',
+                        p: 1.5,
+                        mb: 1,
+                        borderRadius: 1,
+                        boxShadow: 1,
+                        '&:hover': {
+                          bgcolor: '#F7FAFC',
+                          boxShadow: 2,
+                        },
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                      }}
+                      onClick={() => openModal(task)}
+                    >
+                      <Typography
+                        variant="body2"
+                        sx={{ fontWeight: 500, color: '#172B4D', mb: 0.5 }}
+                      >
+                        {task.title}
+                      </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                        <Typography
+                          variant="caption"
+                          sx={{ color: '#5E6C84', fontWeight: 500 }}
+                        >
+                          TASK-{task._id.slice(-4).toUpperCase()}
+                        </Typography>
+                        {task.priority && (
+                          <Chip
+                            icon={getPriorityIcon(task.priority)}
+                            label={task.priority}
+                            size="small"
+                            sx={{
+                              bgcolor:
+                                task.priority === 'high'
+                                  ? '#FFE4E1'
+                                  : task.priority === 'medium'
+                                  ? '#FFF4E5'
+                                  : '#E6FFEC',
+                              color:
+                                task.priority === 'high'
+                                  ? '#C41E3A'
+                                  : task.priority === 'medium'
+                                  ? '#FFA500'
+                                  : '#2E7D32',
+                              fontSize: '0.75rem',
+                            }}
+                          />
+                        )}
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {task.assignedTo ? (
+                          getUserById(task.assignedTo) ? (
+                            <Avatar
+                              alt={getUserById(task.assignedTo)?.name}
+                              src={getUserById(task.assignedTo)?.avatar}
+                              sx={{
+                                width: 32,
+                                height: 32,
+                                fontSize: '1rem',
+                                bgcolor: '#f1f1f1',
+                                color: '#2d2d2d',
+                              }}
+                            >
+                              {getUserById(task.assignedTo)?.name.charAt(0).toUpperCase()}
+                            </Avatar>
+                          ) : (
+                            <Typography variant="caption" sx={{ color: '#5E6C84' }}>
+                              Unassigned
+                            </Typography>
+                          )
+                        ) : (
+                          <Typography variant="caption" sx={{ color: '#5E6C84' }}>
+                            Unassigned
+                          </Typography>
+                        )}
+                      </Box>
+                    </Box>
+                  ))}
+              </Box>
+             
+            </Box>
+          ))}
+        </Box>
+      )}
+
+      {selectedTask && (
+        <TaskModal
+          task={selectedTask}
+          onClose={closeModal}
+          onUpdate={handleUpdateTask}
+        />
+      )}
+    </Box>
   );
 }

@@ -78,7 +78,7 @@ export default function TaskModal({ task, onClose }: TaskModalProps) {
 
   // Handle assignee selection
   const handleAssigneeChange = (newValue: User | null) => {
-    setEditedTask((prev) => ({ ...prev, assignee: newValue ? newValue.name : undefined }));
+    setEditedTask((prev) => ({ ...prev, assigneeTo: newValue ? newValue.email : undefined }));
   };
 
   // Handle label input
