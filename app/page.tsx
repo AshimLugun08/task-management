@@ -74,9 +74,7 @@ export default function Home() {
           <p className="text-lg md:text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
             Join thousands of teams managing their projects with our app. Sign in now to explore!
           </p>
-          <div className="flex justify-center">
-            <LoginButton />
-          </div>
+          
         </div>
       </section>
 
@@ -85,7 +83,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div>
-              <h3 className="text-lg font-semibold mb-4">My App</h3>
+              <h3 className="text-lg font-semibold mb-4">Chai App</h3>
               <p className="text-gray-400">
                 Empowering teams to manage projects efficiently and collaboratively.
               </p>

@@ -274,7 +274,7 @@ export default function Navbar() {
     <button
       onClick={() => {
         console.log('Logging out from user dropdown');
-        signOut();
+        signOut({ callbackUrl: "/" })
       }}
       className="w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center"
     >
@@ -349,12 +349,12 @@ export default function Navbar() {
                 onClick={() => {
                   console.log('Logging out from mobile dropdown');
                   setShowDropdown(false);
-                  signOut();
+                   signOut({ callbackUrl: "/" })
                 }}
                 className="flex items-center px.ConcurrentModificationException: null
 3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
               >
-                <IoLogOut className="mr-1 w-5 h-5" />
+                <IoLogOut className="ml-3 mr-2 w-5 h-5" />
                 Logout
               </button>
             </div>
