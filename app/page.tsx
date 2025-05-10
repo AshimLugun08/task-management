@@ -115,7 +115,7 @@ export default function Home() {
             </div>
           </div>
           <div className="mt-8 text-center text-gray-400">
-            © {new Date().getFullYear()} My App. All rights reserved.
+            © {new Date().getFullYear()} Chai App. All rights reserved.
           </div>
         </div>
       </footer>
