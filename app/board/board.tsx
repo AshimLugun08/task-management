@@ -10,9 +10,11 @@ import {
   Alert,
   Avatar,
   Chip,
+  TextField,
+  InputAdornment,
 } from '@mui/material';
 import { IoAdd } from 'react-icons/io5';
-import { PriorityHigh, ArrowUpward, ArrowDownward } from '@mui/icons-material';
+import { PriorityHigh, ArrowUpward, ArrowDownward, Search as SearchIcon } from '@mui/icons-material';
 
 type TaskStatus = 'todo' | 'in-progress' | 'testing' | 'done';
 
@@ -44,6 +46,7 @@ export default function BoardPage({ tasks: initialTasks }: BoardPageProps) {
   const [users, setUsers] = useState<User[]>([]);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState<string>(''); // New state for search
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -119,6 +122,20 @@ export default function BoardPage({ tasks: initialTasks }: BoardPageProps) {
     }
   };
 
+  // Filter tasks by both selectedUsers and searchQuery
+  const filteredTasks = tasks.filter(
+    (task) =>
+      (selectedUsers.length === 0 || selectedUsers.includes(task.assignedTo || '')) &&
+      (searchQuery === '' || task.title.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
+  const taskStats = columns.reduce((acc, column) => {
+    acc[column] = filteredTasks.filter((task) => task.status === column).length;
+    return acc;
+  }, {} as Record<TaskStatus, number>);
+
+  const totalTasks = filteredTasks.length;
+
   return (
     <Box sx={{ p: 3, bgcolor: '#F4F5F7', minHeight: '100vh', fontFamily: 'Roboto, sans-serif' }}>
       {/* Header */}
@@ -137,33 +154,6 @@ export default function BoardPage({ tasks: initialTasks }: BoardPageProps) {
         <Typography variant="h5" sx={{ fontWeight: 500, color: '#172B4D' }}>
           Task Board
         </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          {users.map((user) => (
-            <Avatar
-              key={user._id}
-              alt={user.name}
-              src={user.avatar}
-              sx={{
-                width: 36,
-                height: 36,
-                fontSize: '1rem',
-                bgcolor: '#f1f1f1',
-                color: '#2d2d2d',
-                border: selectedUsers.includes(user._id) ? '2px solid #1976d2' : 'none',
-                cursor: 'pointer',
-              }}
-              onClick={() =>
-                setSelectedUsers((prev) =>
-                  prev.includes(user._id)
-                    ? prev.filter((id) => id !== user._id)
-                    : [...prev, user._id]
-                )
-              }
-            >
-              {user.name.charAt(0).toUpperCase()}
-            </Avatar>
-          ))}
-        </Box>
       </Box>
 
       {error && (
@@ -177,123 +167,183 @@ export default function BoardPage({ tasks: initialTasks }: BoardPageProps) {
           <CircularProgress />
         </Box>
       ) : (
-        <Box sx={{ display: 'flex', gap: 2, overflowX: 'auto', pb: 2 }}>
-          {columns.map((column) => (
-            <Box
-              key={column}
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2 }}>
+          {/* Sidebar with Search */}
+          <Box
+            sx={{
+              width: { xs: '100%', sm: 250 },
+              bgcolor: 'white',
+              p: 2,
+              borderRadius: 1,
+              boxShadow: 1,
+              flexShrink: 0,
+            }}
+          >
+            <Typography variant="h6" sx={{ fontWeight: 500, color: '#172B4D', mb: 2 }}>
+              Search Tasks
+            </Typography>
+            <TextField
+              fullWidth
+              variant="outlined"
+              placeholder="Search by title..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon sx={{ color: '#5E6C84' }} />
+                  </InputAdornment>
+                ),
+              }}
               sx={{
-                flex: '0 0 280px',
-                bgcolor: '#EBECF0',
-                borderRadius: 2,
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 1,
+                  bgcolor: '#F4F5F7',
+                },
+                '& .MuiInputBase-input': {
+                  color: '#172B4D',
+                  fontFamily: 'Roboto, sans-serif',
+                },
+              }}
+            />
+          </Box>
+
+          {/* Main Content (Task Board + Summary) */}
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            {/* Task Board */}
+            <Box sx={{ display: 'flex', gap: 2, overflowX: 'auto', pb: 2 }}>
+              {columns.map((column) => (
+                <Box
+                  key={column}
+                  sx={{
+                    flex: '0 0 280px',
+                    bgcolor: '#EBECF0',
+                    borderRadius: 2,
+                    p: 2,
+                    minHeight: '70vh',
+                  }}
+                >
+                  <Typography
+                    variant="subtitle1"
+                    sx={{
+                      mb: 2,
+                      fontWeight: 500,
+                      color: '#172B4D',
+                      textTransform: 'uppercase',
+                      fontSize: '0.875rem',
+                    }}
+                  >
+                    {column.replace('-', ' ')}
+                  </Typography>
+                  <Box sx={{ minHeight: '50vh' }}>
+                    {filteredTasks
+                      .filter((task) => task.status === column)
+                      .map((task) => (
+                        <Box
+                          key={task._id}
+                          sx={{
+                            bgcolor: 'white',
+                            p: 1.5,
+                            mb: 1,
+                            borderRadius: 1,
+                            boxShadow: 1,
+                            '&:hover': {
+                              bgcolor: '#F7FAFC',
+                              boxShadow: 2,
+                            },
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease',
+                          }}
+                          onClick={() => openModal(task)}
+                        >
+                          <Typography
+                            variant="body2"
+                            sx={{ fontWeight: 500, color: '#172B4D', mb: 0.5 }}
+                          >
+                            {task.title}
+                          </Typography>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                            <Typography
+                              variant="caption"
+                              sx={{ color: '#5E6C84', fontWeight: 500 }}
+                            >
+                              TASK-{task._id.slice(-4).toUpperCase()}
+                            </Typography>
+                            {task.priority && (
+                              <Chip
+                                icon={getPriorityIcon(task.priority)}
+                                label={task.priority}
+                                size="small"
+                                sx={{
+                                  bgcolor:
+                                    task.priority === 'high'
+                                      ? '#FFE4E1'
+                                      : task.priority === 'medium'
+                                      ? '#FFF4E5'
+                                      : '#E6FFEC',
+                                  color:
+                                    task.priority === 'high'
+                                      ? '#C41E3A'
+                                      : task.priority === 'medium'
+                                      ? '#FFA500'
+                                      : '#2E7D32',
+                                  fontSize: '0.75rem',
+                                }}
+                              />
+                            )}
+                          </Box>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            {task.assignedTo ? (
+                              getUserById(task.assignedTo) ? (
+                                <Avatar
+                                  alt={getUserById(task.assignedTo)?.name}
+                                  src={getUserById(task.assignedTo)?.avatar}
+                                  sx={{
+                                    width: 32,
+                                    height: 32,
+                                    fontSize: '1rem',
+                                    bgcolor: '#f1f1f1',
+                                    color: '#2d2d2d',
+                                  }}
+                                >
+                                  {getUserById(task.assignedTo)?.name.charAt(0).toUpperCase()}
+                                </Avatar>
+                              ) : (
+                                <Typography variant="caption" sx={{ color: '#5E6C84' }}>
+                                  Unassigned
+                                </Typography>
+                              )
+                            ) : (
+                              <Typography variant="caption" sx={{ color: '#5E6C84' }}>
+                                Unassigned
+                              </Typography>
+                            )}
+                          </Box>
+                        </Box>
+                      ))}
+                  </Box>
+                </Box>
+              ))}
+            </Box>
+
+            {/* Summary Section Below Task Board */}
+            <Box
+              sx={{
+                mt: 3,
+                bgcolor: 'white',
                 p: 2,
-                minHeight: '70vh',
+                borderRadius: 1,
+                boxShadow: 1,
+                display: 'flex',
+                flexDirection: { xs: 'column', sm: 'row' },
+                gap: 2,
+                justifyContent: 'space-between',
+                alignItems: { xs: 'flex-start', sm: 'center' },
               }}
             >
-              <Typography
-                variant="subtitle1"
-                sx={{
-                  mb: 2,
-                  fontWeight: 500,
-                  color: '#172B4D',
-                  textTransform: 'uppercase',
-                  fontSize: '0.875rem',
-                }}
-              >
-                {column.replace('-', ' ')}
-              </Typography>
-              <Box sx={{ minHeight: '50vh' }}>
-                {tasks
-                  .filter(
-                    (task) =>
-                      task.status === column &&
-                      (selectedUsers.length === 0 || selectedUsers.includes(task.assignedTo || ''))
-                  )
-                  .map((task) => (
-                    <Box
-                      key={task._id}
-                      sx={{
-                        bgcolor: 'white',
-                        p: 1.5,
-                        mb: 1,
-                        borderRadius: 1,
-                        boxShadow: 1,
-                        '&:hover': {
-                          bgcolor: '#F7FAFC',
-                          boxShadow: 2,
-                        },
-                        cursor: 'pointer',
-                        transition: 'all 0.2s ease',
-                      }}
-                      onClick={() => openModal(task)}
-                    >
-                      <Typography
-                        variant="body2"
-                        sx={{ fontWeight: 500, color: '#172B4D', mb: 0.5 }}
-                      >
-                        {task.title}
-                      </Typography>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                        <Typography
-                          variant="caption"
-                          sx={{ color: '#5E6C84', fontWeight: 500 }}
-                        >
-                          TASK-{task._id.slice(-4).toUpperCase()}
-                        </Typography>
-                        {task.priority && (
-                          <Chip
-                            icon={getPriorityIcon(task.priority)}
-                            label={task.priority}
-                            size="small"
-                            sx={{
-                              bgcolor:
-                                task.priority === 'high'
-                                  ? '#FFE4E1'
-                                  : task.priority === 'medium'
-                                  ? '#FFF4E5'
-                                  : '#E6FFEC',
-                              color:
-                                task.priority === 'high'
-                                  ? '#C41E3A'
-                                  : task.priority === 'medium'
-                                  ? '#FFA500'
-                                  : '#2E7D32',
-                              fontSize: '0.75rem',
-                            }}
-                          />
-                        )}
-                      </Box>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        {task.assignedTo ? (
-                          getUserById(task.assignedTo) ? (
-                            <Avatar
-                              alt={getUserById(task.assignedTo)?.name}
-                              src={getUserById(task.assignedTo)?.avatar}
-                              sx={{
-                                width: 32,
-                                height: 32,
-                                fontSize: '1rem',
-                                bgcolor: '#f1f1f1',
-                                color: '#2d2d2d',
-                              }}
-                            >
-                              {getUserById(task.assignedTo)?.name.charAt(0).toUpperCase()}
-                            </Avatar>
-                          ) : (
-                            <Typography variant="caption" sx={{ color: '#5E6C84' }}>
-                              Unassigned
-                            </Typography>
-                          )
-                        ) : (
-                          <Typography variant="caption" sx={{ color: '#5E6C84' }}>
-                            Unassigned
-                          </Typography>
-                        )}
-                      </Box>
-                    </Box>
-                  ))}
-              </Box>
+              {/* Summary content removed as per the provided code */}
             </Box>
-          ))}
+          </Box>
         </Box>
       )}
 

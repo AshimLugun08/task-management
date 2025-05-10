@@ -3,10 +3,10 @@
 import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
 import { useEffect, useRef, useState } from 'react';
-import { IoClose, IoAdd, IoAttach, IoLink } from 'react-icons/io5';
+import { IoClose, IoAdd, IoAttach, IoLink, IoLogOut } from 'react-icons/io5';
 import { useRouter, usePathname } from 'next/navigation';
+import { FaCoffee } from 'react-icons/fa';
 
-// Define types for Task and User
 type TaskStatus = 'todo' | 'in-progress' | 'testing' | 'done';
 
 interface Task {
@@ -27,18 +27,16 @@ interface User {
   avatar?: string;
 }
 
-// Define type for next-auth session user
 interface SessionUser {
   name?: string | null;
   email?: string | null;
   image?: string | null;
 }
 
-// Utility to get today's date
 const getTodayDate = () => new Date().toISOString().split('T')[0];
 
 export default function Navbar() {
-  const { data: session } = useSession() as { data: { user?: SessionUser } | null };
+  const { data: session, status: authStatus } = useSession();
   const [showDropdown, setShowDropdown] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -55,20 +53,40 @@ export default function Navbar() {
   const [userFetchError, setUserFetchError] = useState<string | null>(null);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const mobileDropdownRef = useRef<HTMLDivElement>(null);
+  const userDropdownRef = useRef<HTMLDivElement>(null);
+  const hamburgerRef = useRef<HTMLButtonElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const pathname = usePathname();
 
-  const toggleDropdown = () => setShowDropdown((prev) => !prev);
+  // Redirect to login if unauthenticated
+  useEffect(() => {
+    if (authStatus === 'unauthenticated' && pathname !== '/login') {
+      console.log('Unauthenticated, redirecting to /login');
+      router.push('/login');
+    }
+  }, [authStatus, router, pathname]);
+
+  const toggleDropdown = () => {
+    console.log('Toggling dropdown, new state:', !showDropdown);
+    setShowDropdown((prev) => !prev);
+  };
 
   const openModal = () => {
+    if (authStatus !== 'authenticated') {
+      console.log('Cannot open modal: User not authenticated');
+      router.push('/login');
+      return;
+    }
+    console.log('Opening modal');
     setNewTask((prev) => ({ ...prev, createdAt: getTodayDate() }));
     setShowModal(true);
     fetchUsers();
   };
 
   const closeModal = () => {
+    console.log('Closing modal');
     setShowModal(false);
     setNewTask({
       title: '',
@@ -147,24 +165,48 @@ export default function Navbar() {
     }
   };
 
-  // Close dropdown on click outside
+  // Close dropdown/modal on click outside
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as HTMLElement;
+      // Ignore clicks/touches on hamburger, links, buttons, or within dropdowns
+      if (
+        hamburgerRef.current?.contains(target) ||
+        target.closest('a') ||
+        target.closest('button') ||
+        mobileDropdownRef.current?.contains(target) ||
+        userDropdownRef.current?.contains(target)
+      ) {
+        return;
+      }
+      if (mobileDropdownRef.current || userDropdownRef.current) {
+        console.log('Clicked outside dropdown, closing');
         setShowDropdown(false);
       }
-      if (modalRef.current && !modalRef.current.contains(event.target as Node) && showModal) {
+      if (modalRef.current && !modalRef.current.contains(target) && showModal) {
+        console.log('Clicked outside modal, closing');
         closeModal();
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+
+    document.addEventListener('click', handleClickOutside);
+    document.addEventListener('touchend', handleClickOutside);
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+      document.removeEventListener('touchend', handleClickOutside);
+    };
   }, [showModal]);
 
   // Close dropdown on route change
   useEffect(() => {
+    console.log('Route changed to:', pathname);
     setShowDropdown(false);
   }, [pathname]);
+
+  // Log performance issues
+  useEffect(() => {
+    console.log('Navbar rendered, authStatus:', authStatus);
+  }, [authStatus]);
 
   const statusColors: { [key in TaskStatus]: string } = {
     todo: 'bg-blue-200 text-blue-800',
@@ -173,145 +215,161 @@ export default function Navbar() {
     done: 'bg-green-200 text-green-800',
   };
 
-  // Fixed navigation function that works with both mobile and desktop
-  const handleNavigation = (path: string) => {
-    // First close the dropdown, then navigate after a slight delay
-    setShowDropdown(false);
-    
-    // Use a timeout to ensure the dropdown closes visually before navigating
-    // This prevents UI jarring and ensures the route change works properly
-    setTimeout(() => {
-      router.push(path);
-    }, 50);
-  };
-
   return (
     <>
       <nav className="flex items-center justify-between bg-gray-900 text-white px-4 py-3 md:px-6 md:py-4 shadow-md relative">
         <div className="text-lg md:text-xl font-bold">
-          <Link href="/">MyLogo</Link>
+         <Link href="/" aria-label="Home">
+                      <FaCoffee className="text-white w-8 h-8" />
+                    </Link>
         </div>
 
         <div className="flex items-center space-x-4 md:space-x-6">
-          <div className="hidden md:flex items-center space-x-4 md:space-x-6">
-            <Link href="/dashboard" className="hover:text-blue-400 transition">
-              Dashboard
-            </Link>
-            <Link href="/board" className="hover:text-blue-400 transition">
-              Board
-            </Link>
-            <Link href="/projects" className="hover:text-blue-400 transition">
-              Projects
-            </Link>
-            <button
-              onClick={openModal}
-              className="flex items-center px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
-            >
-              <IoAdd className="mr-1 w-5 h-5" />
-              Create
-            </button>
-          </div>
+          {authStatus === 'loading' ? (
+            <div>Loading...</div>
+          ) : authStatus === 'authenticated' ? (
+            <>
+              <div className="hidden md:flex items-center space-x-4 md:space-x-6">
+                <Link href="/dashboard" className="hover:text-blue-400 transition">
+                  Dashboard
+                </Link>
+                <Link href="/board" className="hover:text-blue-400 transition">
+                  Board
+                </Link>
+                <Link href="/projects" className="hover:text-blue-400 transition">
+                  Projects
+                </Link>
+                <button
+                  onClick={openModal}
+                  className="flex items-center px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+                >
+                  <IoAdd className="mr-1 w-5 h-5" />
+                  Create
+                </button>
+              </div>
 
-          {session?.user && (
-            <div className="relative" ref={dropdownRef}>
-              <button
-                onClick={toggleDropdown}
-                className="w-8 h-8 md:w-10 md:h-10 bg-blue-600 rounded-full flex items-center justify-center font-semibold text-white focus:outline-none"
-                title={session.user.name || ''}
-              >
-                {getInitial(session.user.name)}
-              </button>
+              <div className="relative">
+                <button
+                  onClick={toggleDropdown}
+                  onTouchEnd={(e) => {
+                    e.preventDefault(); // Prevent click event
+                    console.log('User button touch end, toggling dropdown');
+                    toggleDropdown();
+                  }}
+                  className="w-8 h-8 md:w-10 md:h-10 bg-blue-600 rounded-full flex items-center justify-center font-semibold text-white focus:outline-none z-[70]"
+                  title={session?.user?.name || ''}
+                >
+                  {getInitial(session?.user?.name)}
+                </button>
 
-              {showDropdown && (
-                <div className="absolute right-0 mt-2 w-48 bg-white text-black rounded shadow-lg z-50 pointer-events-auto">
-                  <div className="p-4 border-b">
-                    <p className="font-bold">{session.user.name || 'Unknown'}</p>
-                    <p className="text-sm text-gray-600 truncate">{session.user.email || 'No email'}</p>
-                  </div>
-                  <button
-                    onClick={() => signOut()}
-                    className="w-full text-left px-4 py-2 hover:bg-gray-100"
-                  >
-                    Logout
-                  </button>
-                </div>
-              )}
-            </div>
+                {showDropdown && (
+  <div
+    ref={userDropdownRef}
+    className="absolute right-0 mt-2 w-48 bg-white text-black rounded shadow-lg z-[60] pointer-events-auto hidden md:block"
+  >
+    <div className="p-4 border-b">
+      <p className="font-bold">{session?.user?.name || 'Unknown'}</p>
+      <p className="text-sm text-gray-600 truncate">{session?.user?.email || 'No email'}</p>
+    </div>
+    <button
+      onClick={() => {
+        console.log('Logging out from user dropdown');
+        signOut();
+      }}
+      className="w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center"
+    >
+      <IoLogOut className="mr-1 w-5 h-5" />
+      Logout
+    </button>
+  </div>
+)}
+
+              </div>
+
+              
+            </>
+          ) : (
+            <Link href="/login" className="hover:text-blue-400 transition">
+              Login
+            </Link>
           )}
-
-          {/* Mobile Menu Toggle */}
-          <button
-            onClick={toggleDropdown}
-            className="md:hidden text-white focus:outline-none"
-            aria-label="Toggle menu"
-          >
-            <svg
-              className="w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M4 6h16M4 12h16m-7 6h7"
-              />
-            </svg>
-          </button>
         </div>
 
-        {/* Mobile Dropdown Menu */}
-        {showDropdown && (
-          <div className="md:hidden absolute top-full left-0 right-0 bg-gray-900 text-white shadow-md z-50 pointer-events-auto">
+        {showDropdown && authStatus === 'authenticated' && (
+          <div
+            ref={mobileDropdownRef}
+            className="md:hidden absolute top-full left-0 right-0 bg-gray-900 text-white shadow-md z-[60] pointer-events-auto"
+          >
             <div className="flex flex-col p-4 space-y-2">
-              {/* Using buttons for mobile navigation with fixed handleNavigation */}
-              <button
-                onClick={() => handleNavigation('/dashboard')}
-                className="hover:text-blue-400 transition text-lg text-left"
+              <Link
+                href="/dashboard"
+                className="hover:text-blue-400 transition text-lg block py-2"
+                onClick={() => {
+                  console.log('Navigating to /dashboard');
+                  setShowDropdown(false);
+                }}
+                onTouchStart={() => console.log('Touch start: /dashboard')}
               >
                 Dashboard
-              </button>
-              <button
-                onClick={() => handleNavigation('/board')}
-                className="hover:text-blue-400 transition text-lg text-left"
+              </Link>
+              <Link
+                href="/board"
+                className="hover:text-blue-400 transition text-lg block py-2"
+                onClick={() => {
+                  console.log('Navigating to /board');
+                  setShowDropdown(false);
+                }}
+                onTouchStart={() => console.log('Touch start: /board')}
               >
                 Board
-              </button>
-              <button
-                onClick={() => handleNavigation('/projects')}
-                className="hover:text-blue-400 transition text-lg text-left"
+              </Link>
+              <Link
+                href="/projects"
+                className="hover:text-blue-400 transition text-lg block py-2"
+                onClick={() => {
+                  console.log('Navigating to /projects');
+                  setShowDropdown(false);
+                }}
+                onTouchStart={() => console.log('Touch start: /projects')}
               >
                 Projects
-              </button>
+              </Link>
               <button
                 onClick={() => {
+                  console.log('Opening modal from mobile');
                   setShowDropdown(false);
-                  setTimeout(() => {
-                    openModal();
-                  }, 50);
+                  openModal();
                 }}
                 className="flex items-center px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
               >
                 <IoAdd className="mr-1 w-5 h-5" />
                 Create
               </button>
+              <button
+                onClick={() => {
+                  console.log('Logging out from mobile dropdown');
+                  setShowDropdown(false);
+                  signOut();
+                }}
+                className="flex items-center px.ConcurrentModificationException: null
+3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+              >
+                <IoLogOut className="mr-1 w-5 h-5" />
+                Logout
+              </button>
             </div>
           </div>
         )}
       </nav>
 
-      {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      {showModal && authStatus === 'authenticated' && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[70]">
           <div
             ref={modalRef}
             className="bg-white rounded-lg shadow-xl w-full max-w-[95%] sm:max-w-[600px] lg:max-w-[900px] max-h-[90vh] mx-2 sm:mx-4 overflow-hidden flex flex-col"
           >
             <form id="task-form" onSubmit={handleCreateTask} className="flex flex-col lg:flex-row w-full">
-              {/* Main Content Area */}
               <div className="w-full lg:w-2/3 p-4 sm:p-5 overflow-y-auto">
-                {/* Header */}
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center space-x-2">
                     <button
@@ -344,7 +402,6 @@ export default function Navbar() {
                   </div>
                 </div>
 
-                {/* Status Dropdown */}
                 <div className="mb-4">
                   <select
                     name="status"
@@ -359,7 +416,6 @@ export default function Navbar() {
                   </select>
                 </div>
 
-                {/* Title (Editable) */}
                 <div className="mb-4">
                   <input
                     type="text"
@@ -372,7 +428,6 @@ export default function Navbar() {
                   />
                 </div>
 
-                {/* Description (Editable) */}
                 <div className="mb-4">
                   <h3 className="text-sm font-medium text-gray-700 mb-2">Description</h3>
                   <textarea
@@ -385,7 +440,6 @@ export default function Navbar() {
                   />
                 </div>
 
-                {/* Error Message */}
                 {error && (
                   <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md text-sm">
                     {error}
@@ -393,11 +447,9 @@ export default function Navbar() {
                 )}
               </div>
 
-              {/* Sidebar for Details */}
               <div className="w-full lg:w-1/3 bg-gray-100 p-4 sm:p-5 border-t lg:border-t-0 lg:border-l border-gray-200 overflow-y-auto">
                 <h3 className="text-sm font-medium text-gray-700 mb-4">Details</h3>
                 <div className="space-y-3 text-sm">
-                  {/* AssignedTo Section */}
                   <div>
                     <span className="font-medium text-gray-600">Assigned To:</span>
                     {isLoadingUsers ? (
@@ -449,7 +501,6 @@ export default function Navbar() {
                     )}
                   </div>
 
-                  {/* Priority */}
                   <div>
                     <span className="font-medium text-gray-600">Priority:</span>
                     <select
@@ -481,7 +532,6 @@ export default function Navbar() {
                     )}
                   </div>
 
-                  {/* Due Date */}
                   <div>
                     <span className="font-medium text-gray-600">Due Date:</span>
                     <input
@@ -493,14 +543,12 @@ export default function Navbar() {
                     />
                   </div>
 
-                  {/* Created Date */}
                   <div>
                     <span className="font-medium text-gray-600">Created:</span>
                     <p className="text-gray-600 mt-1 text-sm">{newTask.createdAt}</p>
                   </div>
                 </div>
 
-                {/* Action Buttons */}
                 <div className="mt-4 flex justify-end space-x-3">
                   <button
                     type="button"
